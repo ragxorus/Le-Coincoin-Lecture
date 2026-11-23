@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "243591324117",
+    "project_id": "coincoinlecture",
+    "storage_bucket": "coincoinlecture.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243591324117:android:6ca6c1d6cacecda7765d5c",
+        "android_client_info": {
+          "package_name": "com.example.coincoinlecture"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "243591324117-fvmcjtmj9q4cge8gai7rqficj5cmfds6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.coincoinlecture",
+            "certificate_hash": "0183c76320dbc5a012b1c10f5b550fc2c18d1482"
+          }
+        },
+        {
+          "client_id": "243591324117-6leij2sjofd9n57rg6k2m67udts0mirp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCV9y0D4rl9-tU7APhmNCcfM_Mb4FNYAW0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "243591324117-6leij2sjofd9n57rg6k2m67udts0mirp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

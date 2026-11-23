@@ -22,6 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "coincoinLecture"
+rootProject.name = "CoinCoinLecture"
 include(":app")
- 
