@@ -45,10 +45,6 @@ object Routes {
     fun taskDetail(id: String) = "tasks/$id"
 }
 
-/**
- * Racine de l'interface. Un ViewModel par domaine, créés ici avec leur factory.
- * Personne de connecté : écran de connexion Google. Sinon : l'application.
- */
 @Composable
 fun CoinCoinNavigation(
     authRepository: AuthRepository
@@ -82,10 +78,6 @@ fun CoinCoinNavigation(
     }
 }
 
-/**
- * Navigation de l'application elle-même. Elle n'existe que pendant qu'un utilisateur
- * est connecté : à la déconnexion elle disparaît, et la suivante repart de la liste.
- */
 //@OptIn(ExperimentalMaterial3Api::class)
 //@Composable
 //private fun SignedInContent(
