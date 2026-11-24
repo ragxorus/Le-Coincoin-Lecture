@@ -21,19 +21,21 @@ import com.example.coincoinlecture.R
 class AuthRepository(
     private val auth: FirebaseAuth = Firebase.auth
 ) {
-
     val userId: Flow<String?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
         auth.addAuthStateListener(listener)
         awaitClose { auth.removeAuthStateListener(listener) }
     }
 
+    //renvoie l'id de l'utilisateur connecte
     val currentUserId: String?
         get() = auth.currentUser?.uid
 
+    //renvoie le mail de l'utilisateur connecte
     val currentUserEmail: String?
         get() = auth.currentUser?.email
 
+    //gere la connection avec google
     fun signInWithGoogle(activityContext: Context, onFailure: (String) -> Unit) {
         val option = GetSignInWithGoogleOption.Builder(
             activityContext.getString(R.string.default_web_client_id)
@@ -63,5 +65,6 @@ class AuthRepository(
         )
     }
 
+    //permet de se deconnecter
     fun signOut() = auth.signOut()
 }

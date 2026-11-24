@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AccountCreationView(
+    pseudoTaken : Boolean?,
+    onPseudoChange: (String) -> Unit,
     newAccount : (String) -> Unit
 ){
     var newPseudo by rememberSaveable { mutableStateOf("") }
@@ -33,16 +35,27 @@ fun AccountCreationView(
         Card() {
             OutlinedTextField(
                 value = newPseudo,
-                onValueChange = { newPseudo = it },
-                label = { Text("Pseudo") }
+                onValueChange = {
+                    newPseudo = it
+                    onPseudoChange(it)
+                                },
+                label = { Text("Pseudo") },
+                isError = pseudoTaken == true,
+                supportingText = {
+                    when (pseudoTaken) {
+                        true -> Text("Ce pseudo est déjà pris")
+                        false -> {}
+                        null -> {}
+                    }
+                },
+                singleLine = true
             )
         }
         Spacer(Modifier.width(8.dp))
-        Button(onClick = {
-            if(newPseudo != ""){
-                newAccount(newPseudo)
-            }
-        }) {
+        Button(
+            onClick = { newAccount(newPseudo) },
+            enabled = newPseudo.isNotBlank() && pseudoTaken != true
+        ) {
             Text("Valider")
         }
     }

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -49,23 +51,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.navigation.NavHost
+import com.example.coincoinlecture.ui.view.BookFormView
+import com.example.coincoinlecture.ui.view.BookView
 
-private const val LOGIN = "login"
-private const val ACCOUNT_CREATION = "acount_creation"
 private const val BOOK = "book"
-private const val BOOK_FORM = "book/{id}"
-private const val LOADING = "loading"
+private const val BOOK_FORM = "book_form"
+private const val SCAN = "scan"
+private const val GROUP = "group"
 
-@Composable
-fun LoadingScreen(){
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        CircularProgressIndicator()
-    }
-}
+
 @Composable
 fun CoinCoinNavigation(
     authRepository: AuthRepository,
@@ -92,12 +86,17 @@ fun CoinCoinNavigation(
             }
         )
         userExist == null -> LoadingScreen()
-        userExist == false -> AccountCreationView(fireBaseViewModel::newUser)
+        userExist == false -> {
+            val pseudoTaken by fireBaseViewModel.pseudoTaken.collectAsStateWithLifecycle()
+            AccountCreationView(
+                pseudoTaken,
+                fireBaseViewModel::checkPseudo,
+                fireBaseViewModel::newUser
+            )
+        }
         else -> MainApp(uid,authViewModel,fireBaseViewModel)
     }
 }
-
-
 
 @Composable
 fun MainApp(
@@ -109,6 +108,8 @@ fun MainApp(
     val navStart by nav.currentBackStackEntryAsState()
     val route = navStart?.destination?.route
 
+    val books by fireBaseViewModel.books.collectAsStateWithLifecycle()
+
     fun navigateTo(destination: String) {
         nav.navigate(destination) {
             popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -117,17 +118,29 @@ fun MainApp(
         }
     }
 
-    val showBottomBar = route in setOf(BOOK)
+    val showBottomBar = route in setOf(BOOK,SCAN,GROUP)
 
     Scaffold(
         bottomBar = {
             if(showBottomBar) {
                 NavigationBar() {
                     NavigationBarItem(
+                        selected = route == SCAN,
+                        onClick = { navigateTo(SCAN) },
+                        icon = { Icon(Icons.Default.QrCode, contentDescription = null) },
+                        label = { Text("Scan ISBN") }
+                    )
+                    NavigationBarItem(
                         selected = route == BOOK,
                         onClick = { navigateTo(BOOK) },
                         icon = { Icon(Icons.Default.Book, contentDescription = null) },
                         label = { Text("Livres") }
+                    )
+                    NavigationBarItem(
+                        selected = route == GROUP,
+                        onClick = { navigateTo(GROUP) },
+                        icon = { Icon(Icons.Default.Group, contentDescription = null) },
+                        label = { Text("Groupe") }
                     )
                 }
             }
@@ -138,18 +151,50 @@ fun MainApp(
             startDestination = BOOK,
             modifier = Modifier.padding(innerPadding)
         ){
-            composable(BOOK){
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("$userId")
-                    Button(onClick = authViewModel::signOut) {
-                        Text("Déconnexion (debug)")
-                    }
-                }
+            composable(SCAN){
+
             }
+            composable(GROUP){
+
+            }
+            composable(BOOK){
+                BookView(
+                    books,
+                    {navigateTo(BOOK_FORM)},
+                    fireBaseViewModel::deleteBook,
+                    {}
+                )
+            }
+            composable(BOOK_FORM){
+                BookFormView(
+                    fireBaseViewModel::newBook,
+                    {navigateTo(BOOK)}
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LoadingScreen(){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun debugDisconnect(authViewModel : AuthViewModel){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Button(onClick = authViewModel::signOut) {
+            Text("Déconnexion (debug)")
         }
     }
 }
