@@ -38,6 +38,11 @@ class FireBaseViewModel(
     }
 
     fun newUser(pseudo : String) = viewModelScope.launch {
+        val p = pseudo.trim()
+        if (db.pseudoExists(p)) {
+            _pseudoTaken.value = true
+            return@launch
+        }
         db.newUser(pseudo)
         _userExist.value = true
     }
