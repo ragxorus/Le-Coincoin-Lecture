@@ -20,13 +20,13 @@ class MainActivity : ComponentActivity() {
 
         val app = application as CoinCoinApplication
 
-        val dBaseRepository = app.dBaseRepository
+        val dbRepository = app.dBaseRepository
         val authRepository = app.authRepository
 
         enableEdgeToEdge()
         setContent {
             CoinCoinLectureTheme {
-                CoinCoinNavigation(authRepository)
+                CoinCoinNavigation(authRepository, dbRepository)
             }
         }
     }

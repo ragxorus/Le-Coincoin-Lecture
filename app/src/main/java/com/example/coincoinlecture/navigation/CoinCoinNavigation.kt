@@ -5,8 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Book
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -26,6 +32,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,50 +40,170 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coincoinlecture.data.AuthRepository
+import com.example.coincoinlecture.data.FireBaseRepository
+import com.example.coincoinlecture.ui.view.AccountCreationView
 import com.example.coincoinlecture.ui.view.LoginView
 import com.example.coincoinlecture.viewmodel.AuthViewModel
+import com.example.coincoinlecture.viewmodel.FireBaseViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Icon
+import androidx.navigation.NavHost
 
-object Routes {
-    const val TASK_LIST = "tasks"
-    const val TASK_DETAIL = "tasks/{taskId}"
-
-    fun taskDetail(id: String) = "tasks/$id"
-}
+private const val LOGIN = "login"
+private const val ACCOUNT_CREATION = "acount_creation"
+private const val BOOK = "book"
+private const val BOOK_FORM = "book/{id}"
+private const val LOADING = "loading"
 
 @Composable
+fun LoadingScreen(){
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ){
+        CircularProgressIndicator()
+    }
+}
+@Composable
 fun CoinCoinNavigation(
-    authRepository: AuthRepository
+    authRepository: AuthRepository,
+    dbRepository: FireBaseRepository
 ) {
+
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.factory(authRepository))
     val userId by authViewModel.userId.collectAsStateWithLifecycle()
+
+    val fireBaseViewModel: FireBaseViewModel =
+        viewModel(factory = FireBaseViewModel.factory(authRepository, dbRepository))
+    val userExist by fireBaseViewModel.userExist.collectAsStateWithLifecycle()
+
     val context = LocalContext.current
 
-    if (userId == null) {
-        LoginView(
+    val uid = userId
+
+    val target = when {
+        uid == null -> LoginView(
             onSignIn = {
                 authViewModel.signIn(context) { message ->
                     Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 }
             }
         )
-    } else {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(onClick = authViewModel::signOut) {
-                Text("Déconnexion (debug)")
+        userExist == null -> LoadingScreen()
+        userExist == false -> AccountCreationView(fireBaseViewModel::newUser)
+        else -> MainApp(uid,authViewModel,fireBaseViewModel)
+    }
+}
+
+
+
+@Composable
+fun MainApp(
+    userId: String,
+    authViewModel: AuthViewModel,
+    fireBaseViewModel: FireBaseViewModel
+){
+    val nav = rememberNavController()
+    val navStart by nav.currentBackStackEntryAsState()
+    val route = navStart?.destination?.route
+
+    fun navigateTo(destination: String) {
+        nav.navigate(destination) {
+            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
+    val showBottomBar = route in setOf(BOOK)
+
+    Scaffold(
+        bottomBar = {
+            if(showBottomBar) {
+                NavigationBar() {
+                    NavigationBarItem(
+                        selected = route == BOOK,
+                        onClick = { navigateTo(BOOK) },
+                        icon = { Icon(Icons.Default.Book, contentDescription = null) },
+                        label = { Text("Livres") }
+                    )
+                }
             }
         }
+    ) { innerPadding ->
+        NavHost(
+            navController = nav,
+            startDestination = BOOK,
+            modifier = Modifier.padding(innerPadding)
+        ){
+            composable(BOOK){
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("$userId")
+                    Button(onClick = authViewModel::signOut) {
+                        Text("Déconnexion (debug)")
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+//
+//        LaunchedEffect(target) {
+//            if (nav.currentDestination?.route != target) {
+//                navigateTo(target)
+//            }
+//        }
+//    }
+
+//    if (userId == null) {
+//        LoginView(
+//            onSignIn = {
+//                authViewModel.signIn(context) { message ->
+//                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+//                }
+//            }
+//        )
+//    } else {
+//        when (userExist) {
+//            null -> CircularProgressIndicator()
+//            false -> AccountCreationView(fireBaseViewModel::newUser)
+//            true -> Column(
+//                modifier = Modifier.fillMaxSize(),
+//                verticalArrangement = Arrangement.Center,
+//                horizontalAlignment = Alignment.CenterHorizontally
+//            ) {
+//                Text("$userId")
+//                Button(onClick = authViewModel::signOut) {
+//                    Text("Déconnexion (debug)")
+//                }
+//            }
+//        }
+//    }
+
+
+//        Column(
+//            modifier = Modifier.fillMaxSize(),
+//            verticalArrangement = Arrangement.Center,
+//            horizontalAlignment = Alignment.CenterHorizontally
+//        ) {
+//            Text("$userId")
+//            Button(onClick = authViewModel::signOut) {
+//                Text("Déconnexion (debug)")
+//            }
+//        }
 //        SignedInContent(
 //            taskViewModel = taskViewModel,
 //            onSignOut = authViewModel::signOut
 //        )
-    }
-}
+
 
 //@OptIn(ExperimentalMaterial3Api::class)
 //@Composable

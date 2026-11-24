@@ -31,6 +31,9 @@ class AuthRepository(
     val currentUserId: String?
         get() = auth.currentUser?.uid
 
+    val currentUserEmail: String?
+        get() = auth.currentUser?.email
+
     fun signInWithGoogle(activityContext: Context, onFailure: (String) -> Unit) {
         val option = GetSignInWithGoogleOption.Builder(
             activityContext.getString(R.string.default_web_client_id)

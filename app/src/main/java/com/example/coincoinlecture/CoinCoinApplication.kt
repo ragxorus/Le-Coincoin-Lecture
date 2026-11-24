@@ -9,6 +9,6 @@ class CoinCoinApplication : Application() {
         AuthRepository()
     }
     val dBaseRepository : FireBaseRepository by lazy {
-        FireBaseRepository()
+        FireBaseRepository(authRepository)
     }
 }
