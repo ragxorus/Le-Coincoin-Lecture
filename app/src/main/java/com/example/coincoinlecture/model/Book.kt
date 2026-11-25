@@ -10,6 +10,5 @@ data class Book(
     val lender : String? = null,
     val borrower : String? = null,
     val startDate: LocalDate? = null,
-    val endDate: LocalDate? = null,
     val maxDays : Int? = null
 ){}

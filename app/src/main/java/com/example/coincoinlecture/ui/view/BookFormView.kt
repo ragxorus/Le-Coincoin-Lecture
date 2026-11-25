@@ -49,7 +49,7 @@ fun BookFormView(
         )
         Button(onClick = {
             if(isbn != "" && title != "" && author != ""){
-                newBook(Book("",isbn,title,author,null,null,null,null,null))
+                newBook(Book("",isbn,title,author,null,null,null,null))
                 onAdd()
             }
         }) {

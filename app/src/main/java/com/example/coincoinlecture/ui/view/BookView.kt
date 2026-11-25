@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,13 +28,15 @@ import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.model.Book
 import com.example.coincoinlecture.ui.theme.Typography
 import com.example.coincoinlecture.viewmodel.AccountState
+import java.time.LocalDate
 
 @Composable
 fun BookView(
     accountState: AccountState,
     onAdd: () -> Unit,
     onDeleteBook: (String) -> Unit,
-    onLend: () -> Unit
+    onLend: (String) -> Unit,
+    updateBookLoan: (String, String?, String?, LocalDate?, Int?) -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -55,20 +60,39 @@ fun BookView(
                         Text(
                             text = "Auteur : " + book.author,
                             style = Typography.labelLarge,
-//                            fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(
                                 horizontal = 16.dp
                             )
                         )
 
-                        book.borrower?.let {
-                            Text("Emprunté par : $it")
+                        if(book.borrower != null && book.borrower != accountState.pseudo){
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Emprunté par : ${book.borrower}",
+                                style = Typography.labelMedium,
+                                modifier = Modifier.padding(
+                                    horizontal = 16.dp
+                                )                            )
                         }
-                        book.lender?.let {
-                            Text("Prêté par : $it")
+                        if(book.lender != null && book.lender != accountState.pseudo){
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Prêté par : ${book.lender}",
+                                style = Typography.labelMedium,
+                                modifier = Modifier.padding(
+                                    horizontal = 16.dp
+                                )
+                            )
                         }
                         book.maxDays?.let {
-                            Text("Durée max : $it jours")
+                            Text(
+                                text = "Durée max : $it jours",
+                                style = Typography.labelMedium,
+                                modifier = Modifier.padding(
+                                    horizontal = 16.dp
+                                )
+                            )
+                            Spacer(Modifier.height(8.dp))
                         }
                     }
                     Row(modifier = Modifier.padding(
@@ -79,12 +103,22 @@ fun BookView(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
 
                     ){
-                        Button(
-                            onClick = {
-                                onLend()
+                        if (book.lender != null && book.lender == accountState.pseudo){
+                            Button(
+                                onClick = {
+                                    updateBookLoan(book.id,null,null,null,null)
+                                }
+                            ) {
+                                Text("Récuperer")
                             }
-                        ) {
-                            Text("Prêter")
+                        } else {
+                            Button(
+                                onClick = {
+                                    onLend(book.id)
+                                }
+                            ) {
+                                Text("Prêter")
+                            }
                         }
                         Button(
                             onClick = {

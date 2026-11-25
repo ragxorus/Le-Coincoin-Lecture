@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
+import java.time.LocalDate
 
 class FireBaseViewModel(
     private val auth: AuthRepository,
@@ -94,6 +95,16 @@ class FireBaseViewModel(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()
         )
+
+    fun updateBookLoan(
+        bookId: String,
+        lender: String?,
+        borrower: String?,
+        startDate: LocalDate?,
+        maxDays: Int?
+    ) = viewModelScope.launch {
+        db.updateBookLoan(bookId, lender, borrower, startDate, maxDays)
+    }
 
     fun deleteBook(id : String) = viewModelScope.launch {db.deleteBook(id)}
 

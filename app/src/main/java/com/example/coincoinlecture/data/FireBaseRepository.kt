@@ -59,7 +59,6 @@ class FireBaseRepository(
             "lender" to b.lender,
             "borrower" to b.borrower,
             "startDate" to b.startDate?.toString(),
-            "endDate" to b.endDate?.toString(),
             "maxDays" to b.maxDays
         )
         db.collection("Users").document(userId()).collection("Books")
@@ -80,7 +79,6 @@ class FireBaseRepository(
         lender = getString("lender"),
         borrower = getString("borrower"),
         startDate = getString("startDate")?.let(LocalDate::parse),
-        endDate = getString("endDate")?.let(LocalDate::parse),
         maxDays = getLong("maxDays")?.toInt(),
     )
 
@@ -97,5 +95,23 @@ class FireBaseRepository(
         awaitClose { registration.remove() }
     }
 
+    suspend fun updateBookLoan(
+        bookId: String,
+        lender: String?,
+        borrower: String?,
+        startDate: LocalDate?,
+        maxDays: Int?
+    ) {
+        val changes = hashMapOf<String, Any?>(
+            "lender" to lender,
+            "borrower" to borrower,
+            "startDate" to startDate?.toString(),   // même format que newBook
+            "maxDays" to maxDays
+        )
+        db.collection("Users").document(userId())
+            .collection("Books").document(bookId)
+            .update(changes)
+            .await()
+    }
 
 }
