@@ -50,9 +50,11 @@ import com.example.coincoinlecture.ui.view.JoinGroupView
 import com.example.coincoinlecture.ui.view.LoginView
 import com.example.coincoinlecture.viewmodel.AuthViewModel
 import com.example.coincoinlecture.viewmodel.FireBaseViewModel
+import com.example.coincoinlecture.ui.scanner.IsbnScannerScreen
 
 private const val BOOK = "book"
 private const val BOOK_FORM = "book_form"
+private const val BOOK_FORM_ROUTE = "$BOOK_FORM?isbn={isbn}"
 private const val BOOK_LOAN = "book/{id}"
 private const val SCAN = "scan"
 private const val GROUP = "group"
@@ -186,7 +188,19 @@ fun MainApp(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(SCAN) {
-
+                IsbnScannerScreen(
+                    onIsbnDetected = { isbn ->
+                        nav.navigate("$BOOK_FORM?isbn=${android.net.Uri.encode(isbn)}") {
+                            popUpTo(SCAN) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    onClose = {
+                        navigateTo(BOOK)
+                    }
+                )
             }
             composable(GROUP) {
                 GroupView(
@@ -241,10 +255,21 @@ fun MainApp(
                     updateBookLoan = fireBaseViewModel::updateBookLoan
                 )
             }
-            composable(BOOK_FORM) {
+            composable(
+                route = BOOK_FORM_ROUTE,
+                arguments = listOf(
+                    navArgument("isbn") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { entry ->
+
                 BookFormView(
                     fireBaseViewModel::newBook,
-                    { navigateTo(BOOK) }
+                    { navigateTo(BOOK) },
+                    initialIsbn = entry.arguments?.getString("isbn")
                 )
             }
             composable(ACCOUNT) {

@@ -68,4 +68,20 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    //For scanner
+    implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+    implementation("io.coil-kt.coil3:coil-network-okhttp:3.6.3")
+    val cameraxVersion = "1.7.0"
+
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // Google ML Kit : reconnaissance des codes-barres
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // Lifecycle pour Jetpack Compose
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.1")
+
 }

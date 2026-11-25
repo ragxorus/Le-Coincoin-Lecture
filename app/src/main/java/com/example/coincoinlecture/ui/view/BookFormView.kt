@@ -15,15 +15,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.coincoinlecture.model.Book
+import androidx.compose.runtime.saveable.rememberSaveable
 
 //à changer quand on aura la traduction ISBN -> Book
 
 @Composable
 fun BookFormView(
     newBook: (Book) -> Unit,
-    onAdd: () -> Unit
+    onAdd: () -> Unit,
+    initialIsbn: String? = null
 ) {
-    var isbn by remember { mutableStateOf("")}
+    var isbn by rememberSaveable(initialIsbn) {
+        mutableStateOf(initialIsbn.orEmpty())
+    }
     var title by remember{ mutableStateOf("")}
     var author by remember{ mutableStateOf("")}
 
@@ -35,7 +39,8 @@ fun BookFormView(
         OutlinedTextField(
             value = isbn,
             onValueChange = { isbn = it },
-            label = { Text("ISBN") }
+            label = { Text("ISBN") },
+            singleLine = true
         )
         OutlinedTextField(
             value = title,
