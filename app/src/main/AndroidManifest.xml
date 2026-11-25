@@ -21,9 +21,15 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.CoinCoinLecture"
             android:windowSoftInputMode="adjustResize" >
+
+            <!-- Entrée du lanceur : doit rester seule, sans <data> -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Lien profond coincoin://join -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
