@@ -26,18 +26,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.model.Book
 import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.Member
 
-// Choix de la personne à qui on prête le livre (parmi les membres de ses groupes).
+// Choix de la personne à qui on prête le livre (parmi les membres de ses groupes, sauf soi-même).
 @Composable
 fun LendDialog(
     book: Book,
     groups: List<Group>,
-    onConfirm: (borrower: String, maxDays: Int?) -> Unit,
+    currentUid: String,
+    onConfirm: (groupId: String, member: Member, maxDays: Int?) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val usableGroups = groups.filter { it.members.isNotEmpty() }
-    // (id du groupe, nom du membre) : évite la confusion si deux groupes ont un "Pierre"
-    var selected by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // on retire l'utilisateur lui-même : on ne se prête pas un livre à soi-même
+    val usableGroups = groups
+        .map { g -> g.copy(members = g.members.filter { it.uid != currentUid }) }
+        .filter { it.members.isNotEmpty() }
+
+    // (id du groupe, membre choisi)
+    var selected by remember { mutableStateOf<Pair<String, Member>?>(null) }
     var days by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -55,16 +61,20 @@ fun LendDialog(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(top = 8.dp)
                         )
-                        group.members.map { it.name }.forEach { member ->
-                            val key = group.id to member
+                        group.members.forEach { member ->
+                            val isSelected =
+                                selected?.first == group.id && selected?.second?.id == member.id
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { selected = key },
+                                    .clickable { selected = group.id to member },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                RadioButton(selected = selected == key, onClick = { selected = key })
-                                Text(member)
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { selected = group.id to member }
+                                )
+                                Text(member.name)
                             }
                         }
                     }
@@ -84,7 +94,11 @@ fun LendDialog(
         confirmButton = {
             TextButton(
                 enabled = selected != null,
-                onClick = { selected?.let { onConfirm(it.second, days.toIntOrNull()) } }
+                onClick = {
+                    selected?.let { (groupId, member) ->
+                        onConfirm(groupId, member, days.toIntOrNull())
+                    }
+                }
             ) { Text("Prêter") }
         },
         dismissButton = {

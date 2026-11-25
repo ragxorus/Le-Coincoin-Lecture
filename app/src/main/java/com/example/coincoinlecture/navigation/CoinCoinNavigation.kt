@@ -1,5 +1,6 @@
 package com.example.coincoinlecture.navigation
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +43,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.coincoinlecture.data.AuthRepository
 import com.example.coincoinlecture.data.FireBaseRepository
+import com.example.coincoinlecture.model.GroupLoan
 import com.example.coincoinlecture.ui.view.AccountCreationView
 import com.example.coincoinlecture.ui.view.AccountView
 import com.example.coincoinlecture.ui.view.BookFormView
@@ -48,13 +53,12 @@ import com.example.coincoinlecture.ui.view.GroupFormView
 import com.example.coincoinlecture.ui.view.GroupView
 import com.example.coincoinlecture.ui.view.JoinGroupView
 import com.example.coincoinlecture.ui.view.LoginView
+import com.example.coincoinlecture.ui.view.NewLoanDialog
 import com.example.coincoinlecture.viewmodel.AuthViewModel
 import com.example.coincoinlecture.viewmodel.FireBaseViewModel
-import com.example.coincoinlecture.ui.scanner.IsbnScannerScreen
 
 private const val BOOK = "book"
 private const val BOOK_FORM = "book_form"
-private const val BOOK_FORM_ROUTE = "$BOOK_FORM?isbn={isbn}"
 private const val BOOK_LOAN = "book/{id}"
 private const val SCAN = "scan"
 private const val GROUP = "group"
@@ -118,6 +122,27 @@ fun MainApp(
 
     val account by fireBaseViewModel.accountState.collectAsStateWithLifecycle()
     val groups by fireBaseViewModel.groups.collectAsStateWithLifecycle()
+    val groupLoans by fireBaseViewModel.groupLoans.collectAsStateWithLifecycle()
+    val borrowedLoans by fireBaseViewModel.borrowedLoans.collectAsStateWithLifecycle()
+
+    // prêts dont l'utilisateur n'a pas encore été averti (on retient ceux déjà vus sur l'appareil)
+    val prefs = remember { context.getSharedPreferences("seen_loans", Context.MODE_PRIVATE) }
+    var newLoans by remember { mutableStateOf<List<GroupLoan>>(emptyList()) }
+    LaunchedEffect(borrowedLoans) {
+        val seen = prefs.getStringSet("keys", emptySet()) ?: emptySet()
+        newLoans = borrowedLoans.filter { it.key !in seen }
+    }
+    if (newLoans.isNotEmpty()) {
+        NewLoanDialog(
+            loans = newLoans,
+            onDismiss = {
+                val seen = (prefs.getStringSet("keys", emptySet()) ?: emptySet()).toMutableSet()
+                seen.addAll(newLoans.map { it.key })
+                prefs.edit().putStringSet("keys", seen).apply()
+                newLoans = emptyList()
+            }
+        )
+    }
 
     // ouvre l'écran d'invitation quand on arrive via un lien
     LaunchedEffect(pendingGroupId) {
@@ -188,23 +213,12 @@ fun MainApp(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(SCAN) {
-                IsbnScannerScreen(
-                    onIsbnDetected = { isbn ->
-                        nav.navigate("$BOOK_FORM?isbn=${android.net.Uri.encode(isbn)}") {
-                            popUpTo(SCAN) {
-                                inclusive = true
-                            }
-                            launchSingleTop = true
-                        }
-                    },
-                    onClose = {
-                        navigateTo(BOOK)
-                    }
-                )
+
             }
             composable(GROUP) {
                 GroupView(
                     groups = groups,
+                    loans = groupLoans,
                     currentUid = userId,
                     onCreateGroup = { navigateTo(GROUP_FORM) },
                     onAddMember = fireBaseViewModel::addMember,
@@ -248,28 +262,20 @@ fun MainApp(
                 BookView(
                     accountState = account,
                     groups = groups,
+                    currentUid = userId,
+                    borrowedLoans = borrowedLoans,
                     onAdd = { navigateTo(BOOK_FORM) },
                     onDeleteBook = fireBaseViewModel::deleteBook,
                     onLend = fireBaseViewModel::lendBook,
                     onLendToUser = { id -> navigateTo("book/$id") },
+                    onReturn = fireBaseViewModel::returnBook,
                     updateBookLoan = fireBaseViewModel::updateBookLoan
                 )
             }
-            composable(
-                route = BOOK_FORM_ROUTE,
-                arguments = listOf(
-                    navArgument("isbn") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) { entry ->
-
+            composable(BOOK_FORM) {
                 BookFormView(
                     fireBaseViewModel::newBook,
-                    { navigateTo(BOOK) },
-                    initialIsbn = entry.arguments?.getString("isbn")
+                    { navigateTo(BOOK) }
                 )
             }
             composable(ACCOUNT) {

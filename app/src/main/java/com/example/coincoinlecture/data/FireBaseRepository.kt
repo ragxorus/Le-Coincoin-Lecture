@@ -1,7 +1,9 @@
 package com.example.coincoinlecture.data
 
+import android.util.Log
 import com.example.coincoinlecture.model.Book
 import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.GroupLoan
 import com.example.coincoinlecture.model.Member
 import com.google.firebase.Firebase
 import com.google.firebase.firestore.DocumentSnapshot
@@ -11,6 +13,9 @@ import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 import java.util.UUID
 
@@ -242,4 +247,72 @@ class FireBaseRepository(
             }
         awaitClose { registration.remove() }
     }
+
+    // ------------------------------------------------ PRÊTS PARTAGÉS (collection "Loans")
+    // Un document par livre prêté, avec pour id l'id du livre. Visible par tous les membres du groupe.
+
+    private val loans = db.collection("Loans")
+
+    suspend fun createLoan(
+        book: Book,
+        groupId: String,
+        ownerName: String,
+        member: Member,
+        maxDays: Int?
+    ) {
+        val today = LocalDate.now()
+        val data = hashMapOf<String, Any?>(
+            "groupId" to groupId,
+            "ownerUid" to userId(),
+            "ownerName" to ownerName,
+            "bookTitle" to book.title,
+            "bookAuthor" to book.author,
+            "borrowerMemberId" to member.id,
+            "borrowerName" to member.name,
+            "startDate" to today.toString(),
+            "endDate" to maxDays?.let { today.plusDays(it.toLong()).toString() },
+            "maxDays" to maxDays
+        )
+        loans.document(book.id).set(data).await()
+    }
+
+    //le livre est rendu (ou supprimé) : on retire le prêt partagé
+    suspend fun returnLoan(bookId: String) {
+        loans.document(bookId).delete().await()
+    }
+
+    private fun DocumentSnapshot.toGroupLoan() = GroupLoan(
+        id = id,
+        groupId = getString("groupId") ?: "",
+        ownerUid = getString("ownerUid") ?: "",
+        ownerName = getString("ownerName") ?: "",
+        bookTitle = getString("bookTitle") ?: "",
+        bookAuthor = getString("bookAuthor") ?: "",
+        borrowerMemberId = getString("borrowerMemberId") ?: "",
+        borrowerName = getString("borrowerName") ?: "",
+        startDate = getString("startDate")?.let(LocalDate::parse),
+        endDate = getString("endDate")?.let(LocalDate::parse),
+        maxDays = getLong("maxDays")?.toInt()
+    )
+
+    private fun loansOfGroup(groupId: String): Flow<List<GroupLoan>> = callbackFlow {
+        val registration = loans
+            .whereEqualTo("groupId", groupId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot?.documents?.map { it.toGroupLoan() } ?: emptyList())
+            }
+        awaitClose { registration.remove() }
+    }.catch { e ->
+        Log.e("FireBaseRepository", "Erreur lecture des prêts du groupe $groupId", e)
+        emit(emptyList())
+    }
+
+    //tous les prêts de tous mes groupes
+    fun loansFlow(groupIds: List<String>): Flow<List<GroupLoan>> =
+        if (groupIds.isEmpty()) flowOf(emptyList())
+        else combine(groupIds.map { loansOfGroup(it) }) { arrays -> arrays.flatMap { it } }
 }

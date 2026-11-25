@@ -9,6 +9,7 @@ import com.example.coincoinlecture.data.AuthRepository
 import com.example.coincoinlecture.data.FireBaseRepository
 import com.example.coincoinlecture.model.Book
 import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.GroupLoan
 import com.example.coincoinlecture.model.Member
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -20,8 +21,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -111,14 +114,22 @@ class FireBaseViewModel(
         db.updateBookLoan(bookId, lender, borrower, startDate, maxDays)
     }
 
-    fun deleteBook(id : String) = viewModelScope.launch {db.deleteBook(id)}
-
-    // prête un livre à un membre d'un groupe (le prêteur est l'utilisateur connecté)
-    fun lendBook(bookId: String, borrower: String, maxDays: Int?) = viewModelScope.launch {
-        db.lendBook(bookId, _pseudo.value.orEmpty(), borrower, maxDays)
+    fun deleteBook(id: String) = launchCatching {
+        db.deleteBook(id)
+        db.returnLoan(id)
     }
 
-    fun returnBook(bookId: String) = viewModelScope.launch { db.returnBook(bookId) }
+    // prête un livre à un membre d'un groupe : met à jour le livre ET crée le prêt partagé
+    fun lendBook(book: Book, groupId: String, member: Member, maxDays: Int?) = launchCatching {
+        val lender = _pseudo.value.orEmpty()
+        db.lendBook(book.id, lender, member.name, maxDays)
+        db.createLoan(book, groupId, lender, member, maxDays)
+    }
+
+    fun returnBook(bookId: String) = launchCatching {
+        db.returnBook(bookId)
+        db.returnLoan(bookId)
+    }
 
     // --------------------------------------------------------------- GROUPES
 
@@ -143,6 +154,32 @@ class FireBaseViewModel(
             }
         }
         .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    // tous les prêts des groupes dont je fais partie
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val groupLoans: StateFlow<List<GroupLoan>> = groups
+        .map { list -> list.map { it.id }.sorted() }
+        .distinctUntilChanged()
+        .flatMapLatest { ids -> db.loansFlow(ids) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    // les livres qu'on m'a prêtés : prêts dont l'emprunteur est un membre lié à mon compte
+    val borrowedLoans: StateFlow<List<GroupLoan>> =
+        combine(groups, groupLoans, auth.userId) { groupList, allLoans, uid ->
+            allLoans.filter { loan ->
+                uid != null && groupList.firstOrNull { it.id == loan.groupId }
+                    ?.members
+                    ?.any { it.id == loan.borrowerMemberId && it.uid == uid } == true
+            }
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = emptyList()

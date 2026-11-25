@@ -31,6 +31,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.model.Book
 import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.GroupLoan
+import com.example.coincoinlecture.model.Member
 import com.example.coincoinlecture.ui.theme.Typography
 import com.example.coincoinlecture.viewmodel.AccountState
 import java.time.LocalDate
@@ -39,12 +41,16 @@ import java.time.LocalDate
 fun BookView(
     accountState: AccountState,
     groups: List<Group>,
+    currentUid: String,
+    borrowedLoans: List<GroupLoan>,
     onAdd: () -> Unit,
     onDeleteBook: (String) -> Unit,
     // prêt à un membre d'un groupe (fenêtre de choix)
-    onLend: (bookId: String, borrower: String, maxDays: Int?) -> Unit,
+    onLend: (book: Book, groupId: String, member: Member, maxDays: Int?) -> Unit,
     // prêt à un utilisateur ayant un compte (écran BookLoanView)
     onLendToUser: (bookId: String) -> Unit,
+    // supprime le prêt partagé quand on récupère le livre
+    onReturn: (bookId: String) -> Unit,
     updateBookLoan: (String, String?, String?, LocalDate?, Int?) -> Unit
 ) {
     // livre pour lequel on est en train de choisir l'emprunteur (null = pas de dialogue)
@@ -54,8 +60,9 @@ fun BookView(
         LendDialog(
             book = book,
             groups = groups,
-            onConfirm = { borrower, maxDays ->
-                onLend(book.id, borrower, maxDays)
+            currentUid = currentUid,
+            onConfirm = { groupId, member, maxDays ->
+                onLend(book, groupId, member, maxDays)
                 bookToLend = null
             },
             onDismiss = { bookToLend = null }
@@ -68,6 +75,31 @@ fun BookView(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // ---- livres qu'on m'a prêtés
+            if (borrowedLoans.isNotEmpty()) {
+                item {
+                    Text("Livres empruntés", style = Typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                items(borrowedLoans, key = { "loan-" + it.id }) { loan ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(loan.bookTitle, style = Typography.bodyLarge, fontWeight = FontWeight.Bold)
+                            Text("Auteur : ${loan.bookAuthor}", style = Typography.labelLarge)
+                            Text("Prêté par : ${loan.ownerName}", style = Typography.labelMedium)
+                            loan.startDate?.let { Text("Depuis le : $it", style = Typography.labelMedium) }
+                            loan.endDate?.let { Text("À rendre avant le : $it", style = Typography.labelMedium) }
+                        }
+                    }
+                }
+                item {
+                    Text("Mes livres", style = Typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // ---- mes livres
             items(accountState.books, key = { it.id }) { book ->
                 val iLentIt = book.lender != null && book.lender == accountState.pseudo
 
@@ -109,6 +141,7 @@ fun BookView(
                         if (iLentIt) {
                             Button(onClick = {
                                 updateBookLoan(book.id, null, null, null, null)
+                                onReturn(book.id)
                             }) { Text("Récupérer") }
                         } else {
                             Button(onClick = { bookToLend = book }) { Text("Prêter") }

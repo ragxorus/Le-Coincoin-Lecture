@@ -34,12 +34,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.GroupLoan
 import com.example.coincoinlecture.model.Member
 import com.example.coincoinlecture.ui.theme.Typography
 
 @Composable
 fun GroupView(
     groups: List<Group>,
+    loans: List<GroupLoan>,
     currentUid: String,
     onCreateGroup: () -> Unit,
     onAddMember: (groupId: String, member: String) -> Unit,
@@ -75,7 +77,7 @@ fun GroupView(
                 item { Text("Aucun groupe pour le moment. Appuie sur + pour en créer un.") }
             }
             items(groups, key = { it.id }) { group ->
-                GroupCard(group, currentUid, onAddMember, onRemoveMember, onDeleteGroup, onClaim)
+                GroupCard(group, loans.filter { it.groupId == group.id }, currentUid, onAddMember, onRemoveMember, onDeleteGroup, onClaim)
             }
         }
         FloatingActionButton(
@@ -92,6 +94,7 @@ fun GroupView(
 @Composable
 private fun GroupCard(
     group: Group,
+    loans: List<GroupLoan>,
     currentUid: String,
     onAddMember: (String, String) -> Unit,
     onRemoveMember: (String, Member) -> Unit,
@@ -137,6 +140,19 @@ private fun GroupCard(
                         }
                     }
                 }
+            }
+
+            Text(
+                "Livres prêtés",
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            if (loans.isEmpty()) {
+                Text("Aucun livre prêté dans ce groupe")
+            }
+            loans.forEach { loan ->
+                val since = loan.startDate?.let { " (depuis le $it)" } ?: ""
+                Text("« ${loan.bookTitle} » : ${loan.ownerName} → ${loan.borrowerName}$since")
             }
 
             if (isOwner) {
