@@ -1,9 +1,20 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
 }
+val localProperties = Properties()
+val localPropertiesFile = rootProject.file("local.properties")
 
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { input ->
+        localProperties.load(input)
+    }
+}
+
+val googleBooksApiKey =
+    localProperties.getProperty("GOOGLE_BOOKS_API_KEY", "")
 android {
     namespace = "com.example.coincoinlecture"
     compileSdk {
@@ -20,6 +31,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField(
+            "String",
+            "GOOGLE_BOOKS_API_KEY",
+            "\"$googleBooksApiKey\""
+        )
     }
 
     buildTypes {
@@ -36,6 +52,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

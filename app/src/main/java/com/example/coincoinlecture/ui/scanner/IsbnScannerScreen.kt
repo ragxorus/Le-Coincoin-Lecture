@@ -37,7 +37,12 @@ import com.google.mlkit.vision.common.InputImage
 
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 @Composable
 fun IsbnScannerScreen(
     onIsbnDetected: (String) -> Unit,
@@ -109,19 +114,18 @@ fun IsbnScannerScreen(
 
             Text(
                 text = "Place le code-barres au centre de la caméra.",
-                modifier = Modifier.padding(20.dp)
+                modifier = Modifier.padding(12.dp)
             )
 
         } else {
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(24.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-
                 Text("L'accès à la caméra est nécessaire pour scanner un livre.")
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -135,6 +139,12 @@ fun IsbnScannerScreen(
                 }
             }
         }
+
+        // Saisie manuelle, disponible même sans permission caméra
+        ManualIsbnEntry(
+            onIsbnDetected = onIsbnDetected,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -350,6 +360,53 @@ private class IsbnAnalyzer(
             Log.e("IsbnScanner", "Erreur pendant l'analyse", e)
 
             imageProxy.close()
+        }
+    }
+}
+
+@Composable
+private fun ManualIsbnEntry(
+    onIsbnDetected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var isbn by rememberSaveable { mutableStateOf("") }
+
+    // Nettoyage de l'ISBN avant validation
+    val cleanIsbn = isbn
+        .filter { it.isDigit() || it == 'X' || it == 'x' }
+        .uppercase()
+
+    val validIsbn = cleanIsbn.length == 10 || cleanIsbn.length == 13
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Ou saisir un ISBN manuellement")
+
+        OutlinedTextField(
+            value = isbn,
+            onValueChange = { isbn = it },
+            label = { Text("ISBN") },
+            placeholder = { Text("Ex : 9782841727919") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Ascii
+            )
+        )
+
+        Button(
+            onClick = {
+                onIsbnDetected(cleanIsbn)
+            },
+            enabled = validIsbn,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Rechercher ce livre")
         }
     }
 }

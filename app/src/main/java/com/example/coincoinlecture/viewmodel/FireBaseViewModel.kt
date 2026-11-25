@@ -29,7 +29,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import java.time.LocalDate
-
+import com.example.coincoinlecture.data.GoogleBooksRepository
+import com.example.coincoinlecture.model.GoogleBookInfo
+import com.example.coincoinlecture.BuildConfig
 class FireBaseViewModel(
     private val auth: AuthRepository,
     private val db : FireBaseRepository
@@ -84,7 +86,12 @@ class FireBaseViewModel(
             }
         }
     }
+    private val googleBooksRepository =
+        GoogleBooksRepository(BuildConfig.GOOGLE_BOOKS_API_KEY)
 
+    suspend fun searchBookInfo(isbn: String): GoogleBookInfo? {
+        return googleBooksRepository.searchByIsbn(isbn)
+    }
     // ---------------------------------------------------------------- LIVRES
 
     fun newBook(b : Book) = viewModelScope.launch { db.newBook(b) }
