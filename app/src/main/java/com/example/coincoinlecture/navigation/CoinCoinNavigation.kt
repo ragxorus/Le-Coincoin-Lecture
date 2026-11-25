@@ -16,15 +16,18 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -37,29 +40,32 @@ import androidx.navigation.navArgument
 import com.example.coincoinlecture.data.AuthRepository
 import com.example.coincoinlecture.data.FireBaseRepository
 import com.example.coincoinlecture.ui.view.AccountCreationView
-import com.example.coincoinlecture.ui.view.LoginView
-import com.example.coincoinlecture.viewmodel.AuthViewModel
-import com.example.coincoinlecture.viewmodel.FireBaseViewModel
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.ui.view.AccountView
 import com.example.coincoinlecture.ui.view.BookFormView
 import com.example.coincoinlecture.ui.view.BookLoanView
 import com.example.coincoinlecture.ui.view.BookView
+import com.example.coincoinlecture.ui.view.GroupFormView
+import com.example.coincoinlecture.ui.view.GroupView
+import com.example.coincoinlecture.ui.view.JoinGroupView
+import com.example.coincoinlecture.ui.view.LoginView
+import com.example.coincoinlecture.viewmodel.AuthViewModel
+import com.example.coincoinlecture.viewmodel.FireBaseViewModel
 
 private const val BOOK = "book"
 private const val BOOK_FORM = "book_form"
-
 private const val BOOK_LOAN = "book/{id}"
 private const val SCAN = "scan"
 private const val GROUP = "group"
-
+private const val GROUP_FORM = "group_form"
 private const val ACCOUNT = "account"
+
 
 @Composable
 fun CoinCoinNavigation(
     authRepository: AuthRepository,
-    dbRepository: FireBaseRepository
+    dbRepository: FireBaseRepository,
+    pendingGroupId: String?,
+    onJoinHandled: () -> Unit
 ) {
 
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModel.factory(authRepository))
@@ -73,7 +79,7 @@ fun CoinCoinNavigation(
 
     val uid = userId
 
-    val target = when {
+    when {
         uid == null -> LoginView(
             onSignIn = {
                 authViewModel.signIn(context) { message ->
@@ -90,7 +96,7 @@ fun CoinCoinNavigation(
                 fireBaseViewModel::newUser
             )
         }
-        else -> MainApp(uid,authViewModel,fireBaseViewModel)
+        else -> MainApp(uid, authViewModel, fireBaseViewModel, pendingGroupId, onJoinHandled)
     }
 }
 
@@ -99,13 +105,25 @@ fun CoinCoinNavigation(
 fun MainApp(
     userId: String,
     authViewModel: AuthViewModel,
-    fireBaseViewModel: FireBaseViewModel
+    fireBaseViewModel: FireBaseViewModel,
+    pendingGroupId: String?,
+    onJoinHandled: () -> Unit
 ){
+    val context = LocalContext.current
     val nav = rememberNavController()
     val navStart by nav.currentBackStackEntryAsState()
     val route = navStart?.destination?.route
 
     val account by fireBaseViewModel.accountState.collectAsStateWithLifecycle()
+    val groups by fireBaseViewModel.groups.collectAsStateWithLifecycle()
+
+    // ouvre l'écran d'invitation quand on arrive via un lien
+    LaunchedEffect(pendingGroupId) {
+        if (pendingGroupId != null) {
+            nav.navigate("join/$pendingGroupId")
+            onJoinHandled()
+        }
+    }
 
     fun navigateTo(destination: String) {
         nav.navigate(destination) {
@@ -115,31 +133,31 @@ fun MainApp(
         }
     }
 
-    val showBar = route in setOf(BOOK,SCAN,GROUP)
+    val showBar = route in setOf(BOOK, SCAN, GROUP)
 
     Scaffold(
         topBar = {
             if (showBar) {
-            CenterAlignedTopAppBar(
-                title = { Text("") },
-                actions = {
-                    IconButton(
-                        onClick = { navigateTo(ACCOUNT) },
-                        modifier = Modifier.size(76.dp)          // zone cliquable
-                    ) {
-                        Icon(
-                            Icons.Default.AccountCircle,
-                            contentDescription = "Profil",
-                            modifier = Modifier.size(40.dp)      // taille de l'icône
-                        )
-                    }
+                CenterAlignedTopAppBar(
+                    title = { Text("") },
+                    actions = {
+                        IconButton(
+                            onClick = { navigateTo(ACCOUNT) },
+                            modifier = Modifier.size(76.dp)          // zone cliquable
+                        ) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = "Profil",
+                                modifier = Modifier.size(40.dp)      // taille de l'icône
+                            )
+                        }
                     }
                 )
             }
         },
         bottomBar = {
-            if(showBar) {
-                NavigationBar() {
+            if (showBar) {
+                NavigationBar {
                     NavigationBarItem(
                         selected = route == SCAN,
                         onClick = { navigateTo(SCAN) },
@@ -166,29 +184,70 @@ fun MainApp(
             navController = nav,
             startDestination = BOOK,
             modifier = Modifier.padding(innerPadding)
-        ){
-            composable(SCAN){
+        ) {
+            composable(SCAN) {
 
             }
-            composable(GROUP){
-
-            }
-            composable(BOOK){
-                BookView(
-                    account,
-                    {navigateTo(BOOK_FORM)},
-                    fireBaseViewModel::deleteBook,
-                    { id -> navigateTo("book/$id") },
-                    fireBaseViewModel::updateBookLoan
+            composable(GROUP) {
+                GroupView(
+                    groups = groups,
+                    currentUid = userId,
+                    onCreateGroup = { navigateTo(GROUP_FORM) },
+                    onAddMember = fireBaseViewModel::addMember,
+                    onRemoveMember = fireBaseViewModel::removeMember,
+                    onDeleteGroup = fireBaseViewModel::deleteGroup,
+                    onClaim = { groupId, memberId ->
+                        fireBaseViewModel.claimMember(groupId, memberId) { error ->
+                            error?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() }
+                        }
+                    },
+                    onJoinWithCode = { code -> nav.navigate("join/$code") }
                 )
             }
-            composable(BOOK_FORM){
+            composable(
+                route = "join/{groupId}",
+                arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+            ) { entry ->
+                val groupId = entry.arguments?.getString("groupId").orEmpty()
+                val joinState by fireBaseViewModel.join.collectAsStateWithLifecycle()
+                LaunchedEffect(groupId) { fireBaseViewModel.loadJoin(groupId) }
+
+                JoinGroupView(
+                    state = joinState,
+                    currentUid = userId,
+                    onClaim = { memberId ->
+                        fireBaseViewModel.claimMember(groupId, memberId) { error ->
+                            if (error == null) navigateTo(GROUP)
+                            else Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    onCancel = { navigateTo(GROUP) }
+                )
+            }
+            composable(GROUP_FORM) {
+                GroupFormView(
+                    onCreate = fireBaseViewModel::newGroup,
+                    onDone = { navigateTo(GROUP) }
+                )
+            }
+            composable(BOOK) {
+                BookView(
+                    accountState = account,
+                    groups = groups,
+                    onAdd = { navigateTo(BOOK_FORM) },
+                    onDeleteBook = fireBaseViewModel::deleteBook,
+                    onLend = fireBaseViewModel::lendBook,
+                    onLendToUser = { id -> navigateTo("book/$id") },
+                    updateBookLoan = fireBaseViewModel::updateBookLoan
+                )
+            }
+            composable(BOOK_FORM) {
                 BookFormView(
                     fireBaseViewModel::newBook,
-                    {navigateTo(BOOK)}
+                    { navigateTo(BOOK) }
                 )
             }
-            composable(ACCOUNT){
+            composable(ACCOUNT) {
                 AccountView(
                     account,
                     authViewModel::signOut
@@ -196,10 +255,10 @@ fun MainApp(
             }
             composable(
                 route = BOOK_LOAN,
-                listOf(navArgument("id") { type = NavType.StringType })
-            ){input ->
+                arguments = listOf(navArgument("id") { type = NavType.StringType })
+            ) { input ->
                 val id = input.arguments?.getString("id")
-                if (id != null){
+                if (id != null) {
                     val pseudoTaken by fireBaseViewModel.pseudoTaken.collectAsStateWithLifecycle()
                     BookLoanView(
                         id,
@@ -207,7 +266,7 @@ fun MainApp(
                         account,
                         fireBaseViewModel::updateBookLoan,
                         fireBaseViewModel::checkPseudo,
-                        {navigateTo(BOOK)}
+                        { navigateTo(BOOK) }
                     )
                 }
             }

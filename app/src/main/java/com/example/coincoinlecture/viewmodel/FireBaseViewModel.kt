@@ -1,5 +1,6 @@
 package com.example.coincoinlecture.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
@@ -7,6 +8,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.coincoinlecture.data.AuthRepository
 import com.example.coincoinlecture.data.FireBaseRepository
 import com.example.coincoinlecture.model.Book
+import com.example.coincoinlecture.model.Group
+import com.example.coincoinlecture.model.Member
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -79,6 +82,8 @@ class FireBaseViewModel(
         }
     }
 
+    // ---------------------------------------------------------------- LIVRES
+
     fun newBook(b : Book) = viewModelScope.launch { db.newBook(b) }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -107,6 +112,92 @@ class FireBaseViewModel(
     }
 
     fun deleteBook(id : String) = viewModelScope.launch {db.deleteBook(id)}
+
+    // prête un livre à un membre d'un groupe (le prêteur est l'utilisateur connecté)
+    fun lendBook(bookId: String, borrower: String, maxDays: Int?) = viewModelScope.launch {
+        db.lendBook(bookId, _pseudo.value.orEmpty(), borrower, maxDays)
+    }
+
+    fun returnBook(bookId: String) = viewModelScope.launch { db.returnBook(bookId) }
+
+    // --------------------------------------------------------------- GROUPES
+
+    // lance une coroutine sans faire planter l'appli si Firestore renvoie une erreur
+    private fun launchCatching(block: suspend () -> Unit) = viewModelScope.launch {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e("FireBaseViewModel", "Erreur Firestore", e)
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val groups: StateFlow<List<Group>> = auth.userId
+        .flatMapLatest { uid ->
+            if (uid == null) {
+                flowOf(emptyList())
+            } else {
+                db.groupsFlow(uid).catch { emit(emptyList()) }
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
+
+    fun newGroup(name: String, members: List<String>) = launchCatching {
+        db.newGroup(name.trim(), members.map { it.trim() }.filter { it.isNotEmpty() }.distinct())
+    }
+
+    fun deleteGroup(id: String) = launchCatching { db.deleteGroup(id) }
+
+    fun addMember(groupId: String, member: String) = launchCatching {
+        val m = member.trim()
+        if (m.isNotEmpty()) db.addMember(groupId, m)
+    }
+
+    fun removeMember(groupId: String, member: Member) = launchCatching {
+        db.removeMember(groupId, member)
+    }
+
+    // ---- rejoindre un groupe via un lien / un code
+
+    private val _join = MutableStateFlow(JoinState())
+    val join: StateFlow<JoinState> = _join.asStateFlow()
+
+    fun loadJoin(groupId: String) {
+        viewModelScope.launch {
+            _join.value = JoinState(loading = true)
+            _join.value = try {
+                val group = db.getGroup(groupId.trim())
+                if (group == null) JoinState(loading = false, error = "Groupe introuvable")
+                else JoinState(loading = false, group = group)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("FireBaseViewModel", "Chargement du groupe impossible", e)
+                JoinState(loading = false, error = "Impossible de charger le groupe")
+            }
+        }
+    }
+
+    // "je suis cette personne" ; onDone reçoit null si tout s'est bien passé, sinon le message d'erreur
+    fun claimMember(groupId: String, memberId: String, onDone: (String?) -> Unit) {
+        viewModelScope.launch {
+            val error = try {
+                db.claimMember(groupId, memberId)
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                e.message ?: "Erreur"
+            }
+            onDone(error)
+        }
+    }
 
     val accountState: StateFlow<AccountState> = combine(_pseudo, books) { pseudo, bookList ->
         AccountState(pseudo = pseudo.orEmpty(), books = bookList)
