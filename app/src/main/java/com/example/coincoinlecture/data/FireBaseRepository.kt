@@ -26,7 +26,7 @@ class FireBaseRepository(
             "pseudo" to pseudo
         )
         db.collection("Users").document(userId())
-            .set(user)
+            .set(user).await()
     }
 
     //vérifie si l'utilisateur connecte existe dans la DB
@@ -43,6 +43,12 @@ class FireBaseRepository(
             .get()
             .await()
             .isEmpty
+
+    suspend fun userPseudo(): String? =
+        db.collection("Users").document(userId())
+            .get()
+            .await()
+            .getString("pseudo")
 
     //ajoute un nouveau livre dans la sous collections Books de l'utilisateur connecte
     suspend fun newBook(b : Book){
@@ -78,8 +84,8 @@ class FireBaseRepository(
         maxDays = getLong("maxDays")?.toInt(),
     )
 
-    fun booksFlow(): Flow<List<Book>> = callbackFlow {
-        val registration = db.collection("Users").document(userId())
+    fun booksFlow(uid: String): Flow<List<Book>> = callbackFlow {
+        val registration = db.collection("Users").document(uid)
             .collection("Books")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -90,4 +96,6 @@ class FireBaseRepository(
             }
         awaitClose { registration.remove() }
     }
+
+
 }

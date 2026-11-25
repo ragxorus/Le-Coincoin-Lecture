@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.coincoinlecture.data.AuthRepository
 import com.example.coincoinlecture.data.FireBaseRepository
 import com.example.coincoinlecture.model.Book
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -26,12 +30,17 @@ class FireBaseViewModel(
     private val _userExist = MutableStateFlow<Boolean?>(null)
     val userExist: StateFlow<Boolean?> = _userExist.asStateFlow()
 
+    private val _pseudo = MutableStateFlow<String?>(null)
+
     init {
         viewModelScope.launch {
             auth.userId.collectLatest { uid ->              //se relance à chaque changement de userId
                 _userExist.value = null
+                _pseudo.value = null
                 if (uid != null) {
-                    _userExist.value = db.userExist()
+                    val pseudo = db.userPseudo()
+                    _pseudo.value = pseudo
+                    _userExist.value = pseudo != null
                 }
             }
         }
@@ -43,7 +52,8 @@ class FireBaseViewModel(
             _pseudoTaken.value = true
             return@launch
         }
-        db.newUser(pseudo)
+        db.newUser(p)
+        _pseudo.value = p
         _userExist.value = true
     }
 
@@ -70,8 +80,15 @@ class FireBaseViewModel(
 
     fun newBook(b : Book) = viewModelScope.launch { db.newBook(b) }
 
-    val books: StateFlow<List<Book>> = db.booksFlow()
-        .catch { emit(emptyList()) }   // sinon une erreur Firestore fait planter l'app
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val books: StateFlow<List<Book>> = auth.userId
+        .flatMapLatest { uid ->
+            if (uid == null) {
+                flowOf(emptyList())                       // déconnecté : liste vide, aucune écoute
+            } else {
+                db.booksFlow(uid).catch { emit(emptyList()) }
+            }
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -80,7 +97,13 @@ class FireBaseViewModel(
 
     fun deleteBook(id : String) = viewModelScope.launch {db.deleteBook(id)}
 
-
+    val accountState: StateFlow<AccountState> = combine(_pseudo, books) { pseudo, bookList ->
+        AccountState(pseudo = pseudo.orEmpty(), books = bookList)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = AccountState(pseudo = "", books = emptyList())
+    )
 
     companion object {
         fun factory(auth: AuthRepository, db: FireBaseRepository) = viewModelFactory {

@@ -20,12 +20,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.coincoinlecture.model.Book
+import com.example.coincoinlecture.ui.theme.Typography
+import com.example.coincoinlecture.viewmodel.AccountState
 
 @Composable
 fun BookView(
-    books : List<Book>,
+    accountState: AccountState,
     onAdd: () -> Unit,
     onDeleteBook: (String) -> Unit,
     onLend: () -> Unit
@@ -36,14 +39,27 @@ fun BookView(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            items(books, key = { it.id }) { book ->
+            items(accountState.books, key = { it.id }) { book ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
-                        Text(book.title)
-                        Text(book.author)
+                        Text(
+                            text = book.title,
+                            style = Typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(
+                                vertical = 8.dp
+                            ))
+                        Text(
+                            text = "Auteur : " + book.author,
+                            style = Typography.labelLarge,
+//                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp
+                            )
+                        )
 
                         book.borrower?.let {
                             Text("Emprunté par : $it")
@@ -55,9 +71,12 @@ fun BookView(
                             Text("Durée max : $it jours")
                         }
                     }
-                    Row(modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                    Row(modifier = Modifier.padding(
+                        horizontal = 16.dp,
+                        vertical = 8.dp
+                    ).fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(100.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
 
                     ){
                         Button(

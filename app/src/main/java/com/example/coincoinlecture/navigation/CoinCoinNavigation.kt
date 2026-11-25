@@ -5,11 +5,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -50,7 +54,10 @@ import com.example.coincoinlecture.viewmodel.FireBaseViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHost
+import com.example.coincoinlecture.ui.view.AccountView
 import com.example.coincoinlecture.ui.view.BookFormView
 import com.example.coincoinlecture.ui.view.BookView
 
@@ -59,6 +66,7 @@ private const val BOOK_FORM = "book_form"
 private const val SCAN = "scan"
 private const val GROUP = "group"
 
+private const val ACCOUNT = "account"
 
 @Composable
 fun CoinCoinNavigation(
@@ -98,6 +106,7 @@ fun CoinCoinNavigation(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(
     userId: String,
@@ -108,7 +117,7 @@ fun MainApp(
     val navStart by nav.currentBackStackEntryAsState()
     val route = navStart?.destination?.route
 
-    val books by fireBaseViewModel.books.collectAsStateWithLifecycle()
+    val account by fireBaseViewModel.accountState.collectAsStateWithLifecycle()
 
     fun navigateTo(destination: String) {
         nav.navigate(destination) {
@@ -118,11 +127,30 @@ fun MainApp(
         }
     }
 
-    val showBottomBar = route in setOf(BOOK,SCAN,GROUP)
+    val showBar = route in setOf(BOOK,SCAN,GROUP)
 
     Scaffold(
+        topBar = {
+            if (showBar) {
+            CenterAlignedTopAppBar(
+                title = { Text("") },
+                actions = {
+                    IconButton(
+                        onClick = { navigateTo(ACCOUNT) },
+                        modifier = Modifier.size(76.dp)          // zone cliquable
+                    ) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = "Profil",
+                            modifier = Modifier.size(40.dp)      // taille de l'icône
+                        )
+                    }
+                    }
+                )
+            }
+        },
         bottomBar = {
-            if(showBottomBar) {
+            if(showBar) {
                 NavigationBar() {
                     NavigationBarItem(
                         selected = route == SCAN,
@@ -159,7 +187,7 @@ fun MainApp(
             }
             composable(BOOK){
                 BookView(
-                    books,
+                    account,
                     {navigateTo(BOOK_FORM)},
                     fireBaseViewModel::deleteBook,
                     {}
@@ -169,6 +197,12 @@ fun MainApp(
                 BookFormView(
                     fireBaseViewModel::newBook,
                     {navigateTo(BOOK)}
+                )
+            }
+            composable(ACCOUNT){
+                AccountView(
+                    account,
+                    authViewModel::signOut
                 )
             }
         }
